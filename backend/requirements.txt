@@ -1,0 +1,28 @@
+# FastAPI and server
+fastapi==0.121.1
+uvicorn[standard]==0.38.0
+python-multipart==0.0.9
+
+# Data processing
+pandas==2.1.4
+numpy>=1.22.0
+pydantic==2.12.4
+
+# Machine Learning
+torch>=2.0.0
+shap>=0.45.0
+
+# LLM
+google-generativeai>=0.3.0
+
+# HTTP clients
+httpx==0.28.1
+
+# Database (optional, for future use)
+# SQLAlchemy==2.0.44
+# psycopg[binary]==3.2.12
+
+# Utilities
+python-dotenv==1.0.0
+tenacity==9.0.0
+

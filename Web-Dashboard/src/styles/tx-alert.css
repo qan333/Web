@@ -1,0 +1,67 @@
+.card-transaction-monitor,
+.card-alert-tracker {
+  margin-top: 1.5rem;
+  grid-column: 1 / -1; 
+}
+
+/* header tùy biến cho tx monitor */
+.tx-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.tx-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tx-page-label {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* Tables */
+.tx-table,
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
+.tx-table th,
+.tx-table td,
+.report-table th,
+.report-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.tx-table th,
+.report-table th {
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.tx-in {
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.tx-out {
+  color: var(--danger-color);
+  font-weight: 500;
+}
+
+.muted {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+.accent {
+  color: #f5c84c;
+}

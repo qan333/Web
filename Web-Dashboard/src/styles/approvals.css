@@ -1,0 +1,29 @@
+.card-approvals-summary {
+  padding: 0;
+}
+
+.approvals-items {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.approval-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+}
+
+.approval-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.approval-value {
+  color: var(--text-primary);
+  font-weight: 700;
+}

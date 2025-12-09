@@ -1,0 +1,140 @@
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+  animation: slideIn 0.3s ease;
+}
+
+.card:hover {
+  border-color: #ffc107;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(255, 193, 7, 0.1);
+}
+
+.card-header {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, #3a3a3a 0%, #323232 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* body chung */
+.card-body {
+  padding: 1.25rem;
+}
+
+/* Portfolio / VaR */
+.portfolio-value,
+.risk-value {
+  padding: 1.5rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.currency {
+  font-size: 1.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffc107 0%, #ffdb4d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.portfolio-items,
+.risk-items {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.portfolio-item,
+.risk-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.item-value {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* Health overview card */
+.card-health-overview {
+  background: linear-gradient(135deg, #1a1f36 0%, #2d3748 100%) !important;
+  color: white;
+  padding: 2rem;
+  border-radius: 16px;
+  border: none !important;
+}
+
+.health-overview-content h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.no-data-text {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.helper-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+.health-overview-content h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+}
+
+.assessment-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.score-number {
+  font-size: 3rem;
+  font-weight: 800;
+}
+
+.score-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

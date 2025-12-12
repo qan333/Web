@@ -4,28 +4,50 @@ Fetches transaction data from Etherscan API
 """
 import itertools
 import httpx
+import logging
 from typing import Optional, Dict, Any, List
 from app.config import settings
 
-_cycle = itertools.cycle(settings.etherscan_keys or [settings.etherscan_api_key])
+logger = logging.getLogger(__name__)
 
-async def etherscan_get(module: str, action: str, chainid: Optional[int] = None, **params) -> Dict[str, Any]:
+# Round-robin cycle for Etherscan API keys
+_etherscan_keys = settings.etherscan_keys if settings.etherscan_keys else ([settings.etherscan_api_key] if settings.etherscan_api_key else [])
+_etherscan_cycle = itertools.cycle(_etherscan_keys) if _etherscan_keys else itertools.cycle([""])
+
+# Shared HTTP client with connection pooling for better performance
+_etherscan_client: Optional[httpx.AsyncClient] = None
+
+async def _get_etherscan_client() -> httpx.AsyncClient:
+    """Get or create shared HTTP client with connection pooling"""
+    global _etherscan_client
+    if _etherscan_client is None:
+        _etherscan_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(5.0, connect=1.0),  # 5s total, 1s connect (aggressive)
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+            http2=True  # HTTP/2 for better performance
+        )
+    return _etherscan_client
+
+async def etherscan_get(module: str, action: str, chainid: Optional[int] = None, api_key: Optional[str] = None, **params) -> Dict[str, Any]:
     """Send GET request to Etherscan API v2
     
     Args:
         module: API module name
         action: API action name
         chainid: Chain ID (defaults to settings.etherscan_chainid, 1 for Ethereum mainnet, required for v2 API)
+        api_key: Optional API key to use (if None, uses round-robin from available keys)
         **params: Additional parameters
     """
     if chainid is None:
         chainid = settings.etherscan_chainid
-    key = next(_cycle) if settings.etherscan_keys else settings.etherscan_api_key
+    # Use provided key or get next from round-robin
+    key = api_key if api_key else next(_etherscan_cycle)
     q = {"module": module, "action": action, "apikey": key, "chainid": chainid, **params}
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get("https://api.etherscan.io/v2/api", params=q)
-        r.raise_for_status()
-        return r.json()
+    # Use shared client with connection pooling for better performance
+    client = await _get_etherscan_client()
+    r = await client.get("https://api.etherscan.io/v2/api", params=q)
+    r.raise_for_status()
+    return r.json()
 
 async def get_transaction_list(address: str, startblock: int = 0, endblock: int = 99999999, 
                               page: int = 1, offset: int = 100, sort: str = "desc", chainid: Optional[int] = None) -> Dict[str, Any]:
@@ -131,8 +153,17 @@ def _safe_int(value: Any) -> int:
     except (ValueError, TypeError):
         return 0
 
-async def _fetch_token_transactions(address: str, action: str, tx_type: str, max_txns: int, chainid: Optional[int]) -> List[Dict[str, Any]]:
-    """Fetch token transfers of a specific standard for an address."""
+async def _fetch_token_transactions(address: str, action: str, tx_type: str, max_txns: int, chainid: Optional[int], api_key: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Fetch token transfers of a specific standard for an address.
+    
+    Args:
+        address: Ethereum address
+        action: Etherscan action (tokentx, tokennfttx, token1155tx)
+        tx_type: Transaction type (erc20, erc721, erc1155)
+        max_txns: Maximum number of transactions to fetch
+        chainid: Chain ID
+        api_key: Optional API key to use (for load balancing)
+    """
     transactions: List[Dict[str, Any]] = []
     page = 1
     offset = 100
@@ -142,6 +173,7 @@ async def _fetch_token_transactions(address: str, action: str, tx_type: str, max
             "account",
             action,
             chainid=chainid,
+            api_key=api_key,  # Pass API key for load balancing
             address=address,
             page=page,
             offset=offset,
@@ -199,6 +231,7 @@ async def _fetch_token_transactions(address: str, action: str, tx_type: str, max
 async def get_account_transactions(address: str, max_txns: int = 1000, chainid: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Get ERC20/ERC721/ERC1155 transactions for an account address and format them for model input.
+    OPTIMIZED: Fetches all token types in parallel with load balancing across multiple API keys.
     
     Args:
         address: Ethereum address
@@ -206,18 +239,47 @@ async def get_account_transactions(address: str, max_txns: int = 1000, chainid: 
         chainid: Chain ID (1 for Ethereum mainnet)
     
     Returns:
-        Combined list of transactions: max 10 ERC20 + max 10 ERC721 + max 10 ERC1155
+        Combined list of transactions: max 10 total (distributed across ERC20, ERC721, ERC1155)
     """
-    # Fetch max 10 transactions for each token type
-    max_per_type = 10
-    erc20 = await _fetch_token_transactions(address, "tokentx", "erc20", max_per_type, chainid)
-    erc721 = await _fetch_token_transactions(address, "tokennfttx", "erc721", max_per_type, chainid)
-    erc1155 = await _fetch_token_transactions(address, "token1155tx", "erc1155", max_per_type, chainid)
+    import asyncio
+    
+    # Fetch max transactions for each token type IN PARALLEL
+    # Limit to max 10 total transactions (distributed across 3 types)
+    # OPTIMIZATION: Explicitly assign different API keys to each task for true load balancing
+    max_per_type = 4  # Max 4 per type = max 12 total, but we'll limit to 10 after combining
+    num_keys = len(_etherscan_keys) if _etherscan_keys else 1
+    
+    # Assign API keys explicitly: ERC20 uses key[0], ERC721 uses key[1], ERC1155 uses key[0] again (or key[2] if available)
+    erc20_key = _etherscan_keys[0 % num_keys] if _etherscan_keys else None
+    erc721_key = _etherscan_keys[1 % num_keys] if _etherscan_keys and num_keys > 1 else _etherscan_keys[0] if _etherscan_keys else None
+    erc1155_key = _etherscan_keys[2 % num_keys] if _etherscan_keys and num_keys > 2 else _etherscan_keys[0] if _etherscan_keys else None
+    
+    erc20_task = _fetch_token_transactions(address, "tokentx", "erc20", max_per_type, chainid, api_key=erc20_key)
+    erc721_task = _fetch_token_transactions(address, "tokennfttx", "erc721", max_per_type, chainid, api_key=erc721_key)
+    erc1155_task = _fetch_token_transactions(address, "token1155tx", "erc1155", max_per_type, chainid, api_key=erc1155_key)
+    
+    # Fetch all three types concurrently (each uses a different API key for true parallelization)
+    erc20, erc721, erc1155 = await asyncio.gather(erc20_task, erc721_task, erc1155_task, return_exceptions=True)
+    
+    # Handle exceptions gracefully
+    if isinstance(erc20, Exception):
+        logger.warning(f"Error fetching ERC20 transactions: {erc20}")
+        erc20 = []
+    if isinstance(erc721, Exception):
+        logger.warning(f"Error fetching ERC721 transactions: {erc721}")
+        erc721 = []
+    if isinstance(erc1155, Exception):
+        logger.warning(f"Error fetching ERC1155 transactions: {erc1155}")
+        erc1155 = []
     
     # Combine all transactions and sort by timestamp (newest first)
     combined = erc20 + erc721 + erc1155
     combined.sort(key=lambda tx: tx.get("timestamp", 0), reverse=True)
     
-    # Return all combined transactions (max 30 total: 10 + 10 + 10)
+    # Limit to max 10 transactions total
+    MAX_TOTAL_TRANSACTIONS = 10
+    combined = combined[:MAX_TOTAL_TRANSACTIONS]
+    
+    # Return limited transactions (max 10 total)
     return combined
 

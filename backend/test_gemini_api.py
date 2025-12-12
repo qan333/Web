@@ -66,7 +66,7 @@ def test_gemini_explanation(prediction_prob: float, task_type: str, top_features
         return
     
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     
     risk_level = "HIGH" if prediction_prob > 0.7 else ("MEDIUM" if prediction_prob > 0.4 else "LOW")
     
@@ -89,7 +89,7 @@ Return JSON:
     print("=" * 80)
     print("TESTING GEMINI API")
     print("=" * 80)
-    print(f"\nModel: gemini-2.0-flash")
+    print(f"\nModel: gemini-2.5-flash")
     print(f"Task Type: {task_type}")
     print(f"Prediction Probability: {prediction_prob:.1%} ({risk_level})")
     print(f"\nPrompt:\n{prompt}\n")

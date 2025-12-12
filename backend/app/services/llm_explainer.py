@@ -17,7 +17,7 @@ class LLMExplainer:
         if not api_key:
             raise ValueError("Gemini API key not provided")
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
         
     def _translate_feature_name(self, name: str) -> str:
         """Translate technical feature names to human-readable descriptions"""

@@ -236,10 +236,10 @@ class DetectionService:
                 "message": "No transactions found for this address."
             }
         
-        # Step 1.5: Transactions are already limited to max 10 per type (ERC20, ERC721, ERC1155)
-        # from get_account_transactions, so we use all of them for enrichment
+        # Step 1.5: Transactions are already limited to max 10 total from get_account_transactions
+        # so we use all of them for enrichment
         transactions_for_features = all_transactions
-        logger.info(f"⏱️ [OPTIMIZATION] Using {len(transactions_for_features)} transactions for enrichment (max 10 ERC20 + max 10 ERC721 + max 10 ERC1155)")
+        logger.info(f"⏱️ [OPTIMIZATION] Using {len(transactions_for_features)} transactions for enrichment (max 10 total)")
         
         # Step 2: Enrich with NFT data from Rarible (only for limited transactions)
         rarible_start = time.time()
@@ -322,7 +322,7 @@ class DetectionService:
                 "account": account_explanation
             }
             
-            # Step 7: Generate LLM explanations if requested
+            # Step 7: Generate LLM explanations if requested (skip if API key invalid to save time)
             if explain_with_llm and self.llm_explainer:
                 try:
                     gemini_start = time.time()
@@ -341,14 +341,21 @@ class DetectionService:
                         "account": account_llm_explanation
                     }
                 except Exception as e:
-                    logger.error(f"⏱️ [TIMING] Gemini API failed after {time.time() - gemini_start:.2f}s: {str(e)}")
-                    response["llm_explanations"] = {
-                        "account": {
-                            "feature_name": "Unknown",
-                            "feature_value": "0",
-                            "reason": f"Failed to generate LLM explanation: {str(e)}"
+                    error_msg = str(e)
+                    gemini_time = time.time() - gemini_start if 'gemini_start' in locals() else 0
+                    # Skip LLM if API key is invalid/expired to avoid wasting time
+                    if "API key" in error_msg.lower() or "API_KEY" in error_msg:
+                        logger.warning(f"⏱️ [TIMING] Gemini API key invalid, skipping LLM explanation to save time")
+                        # Don't add llm_explanations at all if API key is invalid
+                    else:
+                        logger.error(f"⏱️ [TIMING] Gemini API failed after {gemini_time:.2f}s: {error_msg}")
+                        response["llm_explanations"] = {
+                            "account": {
+                                "feature_name": "Unknown",
+                                "feature_value": "0",
+                                "reason": f"Failed to generate LLM explanation: {error_msg}"
+                            }
                         }
-                    }
         
         total_time = time.time() - start_time
         logger.info(f"⏱️ [TIMING] Total account detection: {total_time:.2f}s")
